@@ -3,78 +3,25 @@ import io
 import requests
 from flask import Flask, request, jsonify
 from PIL import Image, ImageDraw, ImageFont
-from rembg import remove, new_session
 
 app = Flask(__name__)
 
-# ─────────────────────────────────────────
-#  НАСТРОЙКИ — заполни перед деплоем
-# ─────────────────────────────────────────
-TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "")  # токен бота
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
 
-# Загружаем AI-модель один раз при старте сервера (не при каждом запросе)
-# birefnet-portrait — лучшая модель специально для портретов людей
-print("[startup] Загружаем модель rembg (birefnet-portrait)...")
-REMBG_SESSION = new_session("birefnet-portrait")
-print("[startup] Модель загружена ✓")
-
-# Координаты и размер области фото на шаблоне (в пикселях)
-# Измерь в Figma или Photoshop — левый верхний угол области фото
-PHOTO_X      = 158   # отступ от левого края шаблона
-PHOTO_Y      = 520   # отступ от верхнего края шаблона
-PHOTO_W      = 278   # ширина области фото
-PHOTO_H      = 278   # высота области фото
-CORNER_R     = 18    # радиус скругления углов фото
-
-# Координаты и стиль текста ГОДА
-# Год рисуется поверх области — шаблон должен быть без цифр года
-YEAR_X       = 628   # координата X начала текста года
-YEAR_Y       = 778   # координата Y текста года
-YEAR_COLOR   = "#FF8C00"  # оранжевый цвет как в шаблоне
-YEAR_FONT_SIZE = 36
-
-# Путь к шаблону (лежит рядом с app.py)
-TEMPLATE_PATH = "template.png"
-
-# Путь к шрифту (загрузи нужный шрифт и положи рядом)
-FONT_PATH = "font.ttf"
-
-# ─────────────────────────────────────────
-#  ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
-# ─────────────────────────────────────────
-
-def remove_background(image_bytes: bytes) -> bytes | None:
-    """Убирает фон локально через rembg (бесплатно, без внешних API)"""
-    try:
-        # Открываем исходное фото
-        input_img = Image.open(io.BytesIO(image_bytes)).convert("RGBA")
-
-        # Убираем фон — всё происходит локально на сервере
-        output_img = remove(input_img, session=REMBG_SESSION)
-
-        # Конвертируем обратно в bytes
-        out = io.BytesIO()
-        output_img.save(out, format="PNG")
-        out.seek(0)
-        return out.read()
-    except Exception as e:
-        print(f"[rembg error] {e}")
-        return None
+PHOTO_X        = 238
+PHOTO_Y        = 493
+PHOTO_W        = 283
+PHOTO_H        = 235
+CORNER_R       = 15
+YEAR_X         = 742
+YEAR_Y         = 750
+YEAR_COLOR     = "#FF8C00"
+YEAR_FONT_SIZE = 42
+TEMPLATE_PATH  = "template.png"
+FONT_PATH      = "font.ttf"
 
 
-def round_corners(img: Image.Image, radius: int) -> Image.Image:
-    """Скругляет углы изображения"""
-    img = img.convert("RGBA")
-    mask = Image.new("L", img.size, 0)
-    draw = ImageDraw.Draw(mask)
-    draw.rounded_rectangle([0, 0, img.size[0] - 1, img.size[1] - 1],
-                            radius=radius, fill=255)
-    img.putalpha(mask)
-    return img
-
-
-def download_photo_by_url(url: str) -> bytes | None:
-    """Скачивает фото по прямой ссылке (attachment_url из Salebot)"""
+def download_photo(url):
     try:
         resp = requests.get(url, timeout=30)
         return resp.content if resp.status_code == 200 else None
@@ -83,48 +30,44 @@ def download_photo_by_url(url: str) -> bytes | None:
         return None
 
 
-def build_card(photo_bytes: bytes, year: str) -> io.BytesIO | None:
-    """Собирает финальную карточку"""
-
-    # 1. Убираем фон
-    no_bg = remove_background(photo_bytes)
-    if not no_bg:
+def build_card(photo_bytes, year):
+    try:
+        user_photo = Image.open(io.BytesIO(photo_bytes)).convert('RGB')
+        w, h = user_photo.size
+        target_ratio = PHOTO_W / PHOTO_H
+        current_ratio = w / h
+        if current_ratio > target_ratio:
+            new_w = int(h * target_ratio)
+            left = (w - new_w) // 2
+            user_photo = user_photo.crop((left, 0, left + new_w, h))
+        else:
+            new_h = int(w / target_ratio)
+            top = (h - new_h) // 2
+            user_photo = user_photo.crop((0, top, w, top + new_h))
+        user_photo = user_photo.resize((PHOTO_W, PHOTO_H), Image.LANCZOS)
+        user_rgba = user_photo.convert('RGBA')
+        mask = Image.new('L', (PHOTO_W, PHOTO_H), 0)
+        dm = ImageDraw.Draw(mask)
+        dm.rounded_rectangle([0, 0, PHOTO_W-1, PHOTO_H-1], radius=CORNER_R, fill=255)
+        user_rgba.putalpha(mask)
+        template = Image.open(TEMPLATE_PATH).convert('RGBA')
+        template.paste(user_rgba, (PHOTO_X, PHOTO_Y), user_rgba)
+        draw = ImageDraw.Draw(template)
+        try:
+            font = ImageFont.truetype(FONT_PATH, YEAR_FONT_SIZE)
+        except Exception:
+            font = ImageFont.load_default()
+        draw.text((YEAR_X, YEAR_Y), str(year), fill=YEAR_COLOR, font=font)
+        output = io.BytesIO()
+        template.convert('RGB').save(output, format='JPEG', quality=95)
+        output.seek(0)
+        return output
+    except Exception as e:
+        print(f"[build_card error] {e}")
         return None
 
-    # 2. Открываем фото пользователя и шаблон
-    user_img  = Image.open(io.BytesIO(no_bg)).convert("RGBA")
-    template  = Image.open(TEMPLATE_PATH).convert("RGBA")
 
-    # 3. Масштабируем фото под размер области
-    user_img = user_img.resize((PHOTO_W, PHOTO_H), Image.LANCZOS)
-
-    # 4. Скругляем углы фото
-    user_img = round_corners(user_img, CORNER_R)
-
-    # 5. Вставляем фото в шаблон
-    template.paste(user_img, (PHOTO_X, PHOTO_Y), user_img)
-
-    # 6. Накладываем год текстом
-    draw = ImageDraw.Draw(template)
-    try:
-        font = ImageFont.truetype(FONT_PATH, YEAR_FONT_SIZE)
-    except Exception:
-        # Если шрифт не найден — берём системный дефолтный
-        font = ImageFont.load_default()
-        print("[warn] Шрифт не найден, используется дефолтный")
-
-    draw.text((YEAR_X, YEAR_Y), str(year), fill=YEAR_COLOR, font=font)
-
-    # 7. Конвертируем в JPEG и возвращаем
-    output = io.BytesIO()
-    template.convert("RGB").save(output, format="JPEG", quality=95)
-    output.seek(0)
-    return output
-
-
-def send_photo_to_telegram(chat_id: str | int, photo: io.BytesIO,
-                            caption: str = "") -> bool:
-    """Отправляет готовое фото пользователю через Telegram Bot API"""
+def send_photo(chat_id, photo, caption=""):
     resp = requests.post(
         f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendPhoto",
         data={"chat_id": chat_id, "caption": caption},
@@ -134,8 +77,7 @@ def send_photo_to_telegram(chat_id: str | int, photo: io.BytesIO,
     return resp.status_code == 200
 
 
-def send_message(chat_id: str | int, text: str) -> None:
-    """Отправляет текстовое сообщение"""
+def send_message(chat_id, text):
     requests.post(
         f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
         data={"chat_id": chat_id, "text": text},
@@ -143,20 +85,13 @@ def send_message(chat_id: str | int, text: str) -> None:
     )
 
 
-# ─────────────────────────────────────────
-#  ОСНОВНОЙ ENDPOINT — вебхук от Salebot
-# ─────────────────────────────────────────
+@app.route("/", methods=["GET"])
+def health():
+    return jsonify({"status": "alive", "service": "RE_PLAY card bot"})
+
 
 @app.route("/process", methods=["POST"])
 def process():
-    """
-    Ожидает JSON от Salebot:
-    {
-        "chat_id":        "123456789",
-        "attachment_url": "https://...",   ← #{attachment_url} из Salebot
-        "year":           "2012"
-    }
-    """
     data = request.get_json(force=True, silent=True)
     if not data:
         return jsonify({"status": "error", "message": "no json"}), 400
@@ -166,61 +101,37 @@ def process():
     year           = data.get("year", "????")
 
     if not chat_id or not attachment_url:
-        return jsonify({"status": "error", "message": "missing chat_id or attachment_url"}), 400
+        return jsonify({"status": "error", "message": "missing fields"}), 400
 
-    # Валидация года
     try:
-        year_int = int(year)
+        year_int = int(str(year).strip())
         if not (1950 <= year_int <= 2025):
-            send_message(chat_id, "⚠️ Укажи корректный год (например: 2015)")
-            return jsonify({"status": "error", "message": "invalid year"}), 400
+            send_message(chat_id, "⚠️ Введи корректный год, например: 2015")
+            return jsonify({"status": "error"}), 400
     except ValueError:
-        send_message(chat_id, "⚠️ Год должен быть числом (например: 2015)")
-        return jsonify({"status": "error", "message": "year not a number"}), 400
+        send_message(chat_id, "⚠️ Год должен быть числом, например: 2015")
+        return jsonify({"status": "error"}), 400
 
-    # Сообщаем пользователю что обрабатываем
-    send_message(chat_id, "⏳ Создаём твою карточку, подожди несколько секунд...")
-
-    # Скачиваем фото по прямой ссылке от Salebot
-    photo_bytes = download_photo_by_url(attachment_url)
+    photo_bytes = download_photo(attachment_url)
     if not photo_bytes:
         send_message(chat_id, "❌ Не удалось загрузить фото. Попробуй ещё раз.")
-        return jsonify({"status": "error", "message": "cant download photo"}), 500
+        return jsonify({"status": "error"}), 500
 
-    # Собираем карточку
-    card = build_card(photo_bytes, year)
+    card = build_card(photo_bytes, year_int)
     if not card:
-        send_message(chat_id, "❌ Ошибка обработки фото. Попробуй загрузить другое фото.")
-        return jsonify({"status": "error", "message": "build_card failed"}), 500
+        send_message(chat_id, "❌ Ошибка обработки. Попробуй другое фото.")
+        return jsonify({"status": "error"}), 500
 
-    # Отправляем результат
-    ok = send_photo_to_telegram(
-        chat_id, card,
-        caption="🎉 Вот твой паспорт RE_PLAY Community!"
-    )
-
+    ok = send_photo(chat_id, card, caption="🎉 Твой паспорт RE_PLAY Community!")
     if ok:
         return jsonify({"status": "ok"})
     else:
         return jsonify({"status": "error", "message": "telegram send failed"}), 500
 
 
-# ─────────────────────────────────────────
-#  HEALTHCHECK
-# ─────────────────────────────────────────
-
-@app.route("/", methods=["GET"])
-def health():
-    return jsonify({"status": "alive", "service": "RE_PLAY card bot"})
-
-
-@app.route("/test", methods=["POST", "GET"])
-def test():
-    """Тестовый endpoint — просто возвращает ok без какой-либо обработки"""
-    data = request.get_json(force=True, silent=True) or {}
-    print(f"[TEST] Получен запрос: {data}")
-    return jsonify({"status": "ok", "message": "test passed"})
-
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
