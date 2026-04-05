@@ -9,11 +9,11 @@ app = Flask(__name__)
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
 ARCHIVE_CHANNEL_ID = "-1003762733604"  # приватный канал для хранения карточек
 
-PHOTO_X        = 362
+PHOTO_X        = 363
 PHOTO_Y        = 747
-PHOTO_W        = 429
+PHOTO_W        = 430
 PHOTO_H        = 356
-CORNER_R       = 22
+CORNER_R       = 23
 YEAR_X         = 1130
 YEAR_Y         = 1139
 YEAR_COLOR     = "#FF8C00"
