@@ -10,10 +10,10 @@ TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
 ARCHIVE_CHANNEL_ID = "-1003762733604"  # приватный канал для хранения карточек
 
 PHOTO_X        = 364
-PHOTO_Y        = 747
-PHOTO_W        = 430
+PHOTO_Y        = 749
+PHOTO_W        = 429
 PHOTO_H        = 358
-CORNER_R       = 26
+CORNER_R       = 28
 YEAR_X         = 1130
 YEAR_Y         = 1139
 YEAR_COLOR     = "#FF8C00"
