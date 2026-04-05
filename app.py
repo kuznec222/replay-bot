@@ -13,10 +13,10 @@ PHOTO_Y        = 747
 PHOTO_W        = 429
 PHOTO_H        = 356
 CORNER_R       = 22
-YEAR_X         = 1129
+YEAR_X         = 1130
 YEAR_Y         = 1139
 YEAR_COLOR     = "#FF8C00"
-YEAR_FONT_SIZE = 63
+YEAR_FONT_SIZE = 65
 TEMPLATE_PATH  = "template.png"
 FONT_PATH      = "font.ttf"
 
