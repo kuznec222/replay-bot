@@ -140,7 +140,7 @@ def process():
         send_message(chat_id, "❌ Ошибка обработки. Попробуй другое фото.")
         return jsonify({"status": "error"}), 500
 
-    ok = send_photo(chat_id, card, caption="🎉 Твой паспорт RE_PLAY Community!")
+    ok = send_photo(chat_id, card, caption="Твой паспорт RE_PLAY Community!")
     if ok:
         return jsonify({"status": "ok"})
     else:
