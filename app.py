@@ -8,15 +8,15 @@ app = Flask(__name__)
 
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
 
-PHOTO_X        = 238
-PHOTO_Y        = 493
-PHOTO_W        = 283
-PHOTO_H        = 235
-CORNER_R       = 15
-YEAR_X         = 742
-YEAR_Y         = 750
+PHOTO_X        = 360
+PHOTO_Y        = 747
+PHOTO_W        = 429
+PHOTO_H        = 356
+CORNER_R       = 22
+YEAR_X         = 1125
+YEAR_Y         = 1137
 YEAR_COLOR     = "#FF8C00"
-YEAR_FONT_SIZE = 42
+YEAR_FONT_SIZE = 63
 TEMPLATE_PATH  = "template.png"
 FONT_PATH      = "font.ttf"
 
