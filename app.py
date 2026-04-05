@@ -9,9 +9,9 @@ app = Flask(__name__)
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
 ARCHIVE_CHANNEL_ID = "-1003762733604"  # приватный канал для хранения карточек
 
-PHOTO_X        = 364
+PHOTO_X        = 365
 PHOTO_Y        = 749
-PHOTO_W        = 429
+PHOTO_W        = 427
 PHOTO_H        = 358
 CORNER_R       = 30
 YEAR_X         = 1130
