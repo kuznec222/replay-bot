@@ -123,7 +123,7 @@ def process():
 
     try:
         year_int = int(str(year).strip())
-        if not (1950 <= year_int <= 2025):
+        if not (1950 <= year_int <= 2026):
             send_message(chat_id, "⚠️ Введи корректный год, например: 2015")
             return jsonify({"status": "error"}), 400
     except ValueError:
