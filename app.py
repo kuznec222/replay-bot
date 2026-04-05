@@ -11,9 +11,9 @@ ARCHIVE_CHANNEL_ID = "-1003762733604"  # приватный канал для х
 
 PHOTO_X        = 364
 PHOTO_Y        = 747
-PHOTO_W        = 432
-PHOTO_H        = 356
-CORNER_R       = 25
+PHOTO_W        = 430
+PHOTO_H        = 358
+CORNER_R       = 26
 YEAR_X         = 1130
 YEAR_Y         = 1139
 YEAR_COLOR     = "#FF8C00"
