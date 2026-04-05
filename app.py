@@ -7,6 +7,7 @@ from PIL import Image, ImageDraw, ImageFont
 app = Flask(__name__)
 
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
+ARCHIVE_CHANNEL_ID = "-1003762733604"  # приватный канал для хранения карточек
 
 PHOTO_X        = 360
 PHOTO_Y        = 747
@@ -77,6 +78,21 @@ def send_photo(chat_id, photo, caption=""):
     return resp.status_code == 200
 
 
+def save_to_archive(photo, caption=""):
+    """Сохраняет копию карточки в приватный канал-архив"""
+    try:
+        photo.seek(0)
+        requests.post(
+            f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendPhoto",
+            data={"chat_id": ARCHIVE_CHANNEL_ID, "caption": caption},
+            files={"photo": ("card.jpg", photo, "image/jpeg")},
+            timeout=30,
+        )
+        photo.seek(0)
+    except Exception as e:
+        print(f"[archive error] {e}")
+
+
 def send_message(chat_id, text):
     requests.post(
         f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
@@ -139,6 +155,9 @@ def process():
     if not card:
         send_message(chat_id, "❌ Ошибка обработки. Попробуй другое фото.")
         return jsonify({"status": "error"}), 500
+
+    # Сохраняем копию в архивный канал
+    save_to_archive(card, caption=f"chat_id: {chat_id} | год: {year_int}")
 
     ok = send_photo(chat_id, card, caption="Твой паспорт RE_PLAY Community!")
     if ok:
