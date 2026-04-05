@@ -11,7 +11,7 @@ ARCHIVE_CHANNEL_ID = "-1003762733604"  # приватный канал для х
 
 PHOTO_X        = 365
 PHOTO_Y        = 749
-PHOTO_W        = 428
+PHOTO_W        = 429
 PHOTO_H        = 358
 CORNER_R       = 30
 YEAR_X         = 1130
