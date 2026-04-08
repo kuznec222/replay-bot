@@ -69,13 +69,21 @@ def build_card(photo_bytes, year):
 
 
 def send_photo(chat_id, photo, caption=""):
-    resp = requests.post(
-        f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendPhoto",
-        data={"chat_id": chat_id, "caption": caption},
-        files={"photo": ("card.jpg", photo, "image/jpeg")},
-        timeout=30,
-    )
-    return resp.status_code == 200
+    for attempt in range(3):
+        try:
+            photo.seek(0)
+            resp = requests.post(
+                f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendPhoto",
+                data={"chat_id": chat_id, "caption": caption},
+                files={"photo": ("card.jpg", photo, "image/jpeg")},
+                timeout=60,
+            )
+            if resp.status_code == 200:
+                return True
+            print(f"[send_photo] попытка {attempt+1} — статус {resp.status_code}")
+        except Exception as e:
+            print(f"[send_photo] попытка {attempt+1} — ошибка: {e}")
+    return False
 
 
 def save_to_archive(photo, caption=""):
